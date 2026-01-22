@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using System.Runtime.CompilerServices;
@@ -43,56 +42,50 @@ namespace Couchbase.Core.Diagnostics.Metrics
 
         private static readonly Meter KeyValueMeter = new(MeterName, "1.0.0");
 
-        private static readonly Histogram<long> Operations =
-            KeyValueMeter.CreateHistogram<long>(name: Names.Operations,
-                unit: "us",
-                description: "Duration of operations, excluding retries");
+        private static readonly MappedHistogram<long> Operations =
+            MappedMetric.CreateHistogram(KeyValueMeter, Names.Operations, "us",
+                "Duration of operations, excluding retries");
 
-        private static readonly Counter<long> OperationCounts =
-            KeyValueMeter.CreateCounter<long>(name: Names.OperationCounts,
-                unit: "{operations}",
-                description: "Number of operations executed");
+        private static readonly MappedCounter<long> OperationCounts =
+            MappedMetric.CreateCounter(KeyValueMeter, Names.OperationCounts, "{operations}",
+                "Number of operations executed");
 
-        private static readonly Counter<long> ResponseStatus =
-            KeyValueMeter.CreateCounter<long>(name: Names.OperationStatus,
-                unit: "{operations}",
-                description: "KVResponse");
+        private static readonly MappedCounter<long> ResponseStatus =
+            MappedMetric.CreateCounter(KeyValueMeter, Names.OperationStatus, "{operations}", "KVResponse");
 
-        private static readonly Counter<long> Orphans =
-            KeyValueMeter.CreateCounter<long>(name: Names.Orphans,
-                unit: "{operations}",
-                description: "Number of operations sent which did not receive a response");
+        private static readonly MappedCounter<long> Orphans =
+            MappedMetric.CreateCounter(KeyValueMeter, Names.Orphans, "{operations}",
+                "Number of operations sent which did not receive a response");
 
-        private static readonly Counter<long> Retries =
-            KeyValueMeter.CreateCounter<long>(name: Names.Retries,
-                unit: "{operations}",
-                description: "Number of operations retried");
+        private static readonly MappedCounter<long> Retries =
+            MappedMetric.CreateCounter(KeyValueMeter, Names.Retries, "{operations}", "Number of operations retried");
 
-        private static readonly Counter<long> SendQueueFullErrors =
-            KeyValueMeter.CreateCounter<long>(name: Names.SendQueueFullErrors,
-                unit: "{operations}",
-                description: "Number operations rejected due to a full send queue");
+        private static readonly MappedCounter<long> SendQueueFullErrors =
+            MappedMetric.CreateCounter(KeyValueMeter, Names.SendQueueFullErrors, "{operations}",
+                "Number operations rejected due to a full send queue");
 
-        private static readonly Counter<long> Timeouts =
-            KeyValueMeter.CreateCounter<long>(name: Names.Timeouts,
-                unit: "{operations}",
-                description: "Number of operations timed out");
+        private static readonly MappedCounter<long> Timeouts =
+            MappedMetric.CreateCounter(KeyValueMeter, Names.Timeouts, "{operations}", "Number of operations timed out");
 
         static MetricTracker()
         {
             // Due to lazy initialization, we should initialize Observable metrics here rather than static fields
 
-            KeyValueMeter.CreateObservableGauge(name: Names.Connections,
-                unit: "{connections}",
-                observeValue: () => new Measurement<int>(MultiplexingConnection.GetConnectionCount(),
-                    new KeyValuePair<string, object?>(OuterRequestSpans.Attributes.Service, OuterRequestSpans.ServiceSpan.Kv.Name)),
-                description: "Number of active connections");
+            MappedMetric.CreateObservableGauge(KeyValueMeter, Names.Connections, "{connections}",
+                "Number of active connections", convention => new Measurement<int>(
+                    MultiplexingConnection.GetConnectionCount(),
+                    MappedMetric.BuildTags(new TagList
+                    {
+                        { OuterRequestSpans.Attributes.Service, OuterRequestSpans.ServiceSpan.Kv.Name }
+                    }, convention)));
 
-            KeyValueMeter.CreateObservableGauge(name: Names.SendQueueLength,
-                unit: "{operations}",
-                observeValue: () => new Measurement<int>(ConnectionPoolBase.GetSendQueueLength(),
-                    new KeyValuePair<string, object?>(OuterRequestSpans.Attributes.Service, OuterRequestSpans.ServiceSpan.Kv.Name)),
-                description: "Number of operations queued to be sent");
+            MappedMetric.CreateObservableGauge(KeyValueMeter, Names.SendQueueLength, "{operations}",
+                "Number of operations queued to be sent", convention => new Measurement<int>(
+                    ConnectionPoolBase.GetSendQueueLength(),
+                    MappedMetric.BuildTags(new TagList
+                    {
+                        { OuterRequestSpans.Attributes.Service, OuterRequestSpans.ServiceSpan.Kv.Name }
+                    }, convention)));
         }
 
         public static class KeyValue
@@ -115,8 +108,8 @@ namespace Couchbase.Core.Diagnostics.Metrics
 
                 tagList.AddClusterLabelsIfProvided(operation.Span);
 
-                Operations.Record(duration.ToMicroseconds(), tagList);
-                OperationCounts.Add(1, tagList);
+                Operations.Record(duration.ToMicroseconds(), tagList, operation.Span);
+                OperationCounts.Add(1, tagList, operation.Span);
             }
 
             /// <summary>
@@ -125,10 +118,14 @@ namespace Couchbase.Core.Diagnostics.Metrics
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public static void TrackResponseStatus(OpCode opCode, ResponseStatus status)
             {
-                ResponseStatus.Add(1,
-                    new(OuterRequestSpans.Attributes.Service, OuterRequestSpans.ServiceSpan.Kv.Name),
-                    new(OuterRequestSpans.Attributes.Operation, opCode.ToMetricTag()),
-                    new(OuterRequestSpans.Attributes.ResponseStatus, status));
+                var tags = new TagList
+                {
+                    { OuterRequestSpans.Attributes.Service, OuterRequestSpans.ServiceSpan.Kv.Name },
+                    { OuterRequestSpans.Attributes.Operation, opCode.ToMetricTag() },
+                    { OuterRequestSpans.Attributes.ResponseStatus, status }
+                };
+
+                ResponseStatus.Add(1, tags, null);
             }
 
             /// <summary>
@@ -136,36 +133,42 @@ namespace Couchbase.Core.Diagnostics.Metrics
             /// </summary>
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public static void TrackRetry(OpCode opCode) =>
-                Retries.Add(1,
-                    new(OuterRequestSpans.Attributes.Service, OuterRequestSpans.ServiceSpan.Kv.Name),
-                    new(OuterRequestSpans.Attributes.Operation, opCode.ToMetricTag()));
+                Retries.Add(1, new TagList
+                {
+                    { OuterRequestSpans.Attributes.Service, OuterRequestSpans.ServiceSpan.Kv.Name },
+                    { OuterRequestSpans.Attributes.Operation, opCode.ToMetricTag() }
+                }, null);
 
             /// <summary>
             /// Track an orphaned operation.
             /// </summary>
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public static void TrackOrphaned() =>
-                Orphans.Add(1,
-                    new KeyValuePair<string, object?>(OuterRequestSpans.Attributes.Service,
-                        OuterRequestSpans.ServiceSpan.Kv.Name));
+                Orphans.Add(1, new TagList
+                {
+                    { OuterRequestSpans.Attributes.Service, OuterRequestSpans.ServiceSpan.Kv.Name }
+                }, null);
 
             /// <summary>
             /// Tracks an operation rejected due to a full connection pool send queue.
             /// </summary>
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public static void TrackSendQueueFull() =>
-                SendQueueFullErrors.Add(1,
-                    new KeyValuePair<string, object?>(OuterRequestSpans.Attributes.Service,
-                        OuterRequestSpans.ServiceSpan.Kv.Name));
+                SendQueueFullErrors.Add(1, new TagList
+                {
+                    { OuterRequestSpans.Attributes.Service, OuterRequestSpans.ServiceSpan.Kv.Name }
+                }, null);
 
             /// <summary>
             /// Tracks an operation which has failed due to a timeout.
             /// </summary>
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public static void TrackTimeout(OpCode opCode) =>
-                Timeouts.Add(1,
-                    new(OuterRequestSpans.Attributes.Service, OuterRequestSpans.ServiceSpan.Kv.Name),
-                    new(OuterRequestSpans.Attributes.Operation, opCode.ToMetricTag()));
+                Timeouts.Add(1, new TagList
+                {
+                    { OuterRequestSpans.Attributes.Service, OuterRequestSpans.ServiceSpan.Kv.Name },
+                    { OuterRequestSpans.Attributes.Operation, opCode.ToMetricTag() }
+                }, null);
         }
 
         public static class N1Ql
@@ -186,7 +189,7 @@ namespace Couchbase.Core.Diagnostics.Metrics
                 };
 
                 tags.AddClusterLabelsIfProvided(queryRequest.Options?.RequestSpanValue);
-                Operations.Record(duration.ToMicroseconds(), tags);
+                Operations.Record(duration.ToMicroseconds(), tags, queryRequest.Options?.RequestSpanValue);
             }
         }
 
@@ -208,7 +211,7 @@ namespace Couchbase.Core.Diagnostics.Metrics
 
                 tags.AddClusterLabelsIfProvided(analyticsRequest.Options?.RequestSpanValue);
 
-                Operations.Record(duration.ToMicroseconds(), tags);
+                Operations.Record(duration.ToMicroseconds(), tags, analyticsRequest.Options?.RequestSpanValue);
             }
         }
 
@@ -229,7 +232,7 @@ namespace Couchbase.Core.Diagnostics.Metrics
 
                 tags.AddClusterLabelsIfProvided(searchRequest.Options?.RequestSpanValue);
 
-                Operations.Record(duration.ToMicroseconds(), tags);
+                Operations.Record(duration.ToMicroseconds(), tags, searchRequest.Options?.RequestSpanValue);
             }
         }
 
@@ -249,7 +252,7 @@ namespace Couchbase.Core.Diagnostics.Metrics
                 };
 
                 tags.AddClusterLabelsIfProvided(((IViewQuery)viewQuery).RequestSpanValue);
-                Operations.Record(duration.ToMicroseconds(), tags);
+                Operations.Record(duration.ToMicroseconds(), tags, ((IViewQuery)viewQuery).RequestSpanValue);
             }
         }
 
@@ -292,5 +295,6 @@ namespace Couchbase.Core.Diagnostics.Metrics
             }
             return outcome;
         }
+
     }
 }

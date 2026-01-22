@@ -1,5 +1,4 @@
 using System;
-using System.ComponentModel.Design;
 using Couchbase.Core.Diagnostics;
 
 namespace Couchbase.Core.Diagnostics.Tracing;
