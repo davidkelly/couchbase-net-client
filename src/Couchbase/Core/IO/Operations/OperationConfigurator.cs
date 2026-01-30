@@ -1,4 +1,5 @@
 using System;
+using Couchbase.Core.Diagnostics.Metrics;
 using Couchbase.Core.IO.Compression;
 using Couchbase.Core.IO.Transcoders;
 using Couchbase.Core.Retry;
@@ -18,15 +19,17 @@ namespace Couchbase.Core.IO.Operations
         private readonly IOperationCompressor _operationCompressor;
         private readonly ObjectPool<OperationBuilder> _operationBuilderPool;
         private readonly IRetryStrategy _retryStrategy;
+        private readonly MetricTracker _metricTracker;
 
         public OperationConfigurator(ITypeTranscoder typeTranscoder, IOperationCompressor operationCompressor,
-            ObjectPool<OperationBuilder> operationBuilderPool, IRetryStrategy retryStrategy)
+            ObjectPool<OperationBuilder> operationBuilderPool, IRetryStrategy retryStrategy, MetricTracker metricTracker)
         {
             _typeTranscoder = typeTranscoder ?? throw new ArgumentNullException(nameof(typeTranscoder));
             (_typeTranscoder as BaseTranscoder)?.MakeImmutable();
             _operationCompressor = operationCompressor ?? throw new ArgumentNullException(nameof(operationCompressor));
             _operationBuilderPool = operationBuilderPool;
             _retryStrategy = retryStrategy ?? throw new ArgumentNullException(nameof(retryStrategy));
+            _metricTracker = metricTracker ?? throw new ArgumentNullException(nameof(metricTracker));
         }
 
         /// <inheritdoc />
@@ -36,6 +39,7 @@ namespace Couchbase.Core.IO.Operations
             operation.OperationCompressor = _operationCompressor;
             operation.OperationBuilderPool = _operationBuilderPool;
             operation.RetryStrategy = options?.RetryStrategy ?? _retryStrategy;
+            operation.MetricTracker = _metricTracker;
         }
     }
 }

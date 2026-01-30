@@ -7,6 +7,7 @@ using Couchbase.Core.CircuitBreakers;
 using Couchbase.Core.Configuration.Server;
 using Couchbase.Core.Configuration.Server.Streaming;
 using Couchbase.Core.DataMapping;
+using Couchbase.Core.Diagnostics.Metrics;
 using Couchbase.Core.Diagnostics.Metrics.AppTelemetry;
 using Couchbase.Core.Diagnostics.Tracing;
 using Couchbase.Core.IO.Compression;
@@ -54,6 +55,7 @@ namespace Couchbase.Core.DI
             yield return (typeof(IRedactor), new SingletonServiceFactory(typeof(Redactor)));
             yield return (typeof(TypedRedactor), new SingletonServiceFactory(typeof(TypedRedactor)));
             yield return (typeof(IRequestTracer), new SingletonServiceFactory(NoopRequestTracer.Instance));
+            yield return (typeof(MetricTracker), new SingletonServiceFactory(typeof(MetricTracker)));
             yield return (typeof(TimeProvider), new SingletonServiceFactory(TimeProvider.System));
 
             yield return (typeof(ILookupClient), new TransientServiceFactory(_ => new LookupClient()));

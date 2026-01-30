@@ -46,7 +46,7 @@ namespace Couchbase.Core.Retry.Search
             if (Stopwatch != null)
             {
                 Stopwatch.Stop();
-                MetricTracker.Search.TrackOperation(this, Stopwatch.Elapsed, errorType);
+                MetricTracker?.Search.TrackOperation(this, Stopwatch.Elapsed, errorType);
             }
         }
 

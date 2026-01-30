@@ -3,6 +3,8 @@ using System.Linq;
 using System.Threading.Tasks;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Engines;
+using Couchbase;
+using Couchbase.Core.Diagnostics.Metrics;
 using Couchbase.Core.IO.Connections;
 using Couchbase.Core.IO.Connections.Channels;
 using Couchbase.Core.IO.Connections.DataFlow;
@@ -24,11 +26,12 @@ namespace Couchbase.LoadTests.Core.IO.Connections
             var connectionInitializer = new MockConnectionInitializer();
             var redactor = new MockRedactor();
             var connectionFactory = new MockConnectionFactory();
+            var metricTracker = new MetricTracker(new ClusterOptions());
 
             _dataFlowPool = new DataFlowConnectionPool(connectionInitializer, connectionFactory,
                 new DefaultConnectionPoolScaleController(redactor,
                     NullLogger<DefaultConnectionPoolScaleController>.Instance),
-                redactor, NullLogger<DataFlowConnectionPool>.Instance, 1024)
+                redactor, NullLogger<DataFlowConnectionPool>.Instance, metricTracker, 1024)
             {
                 MinimumSize = 2,
                 MaximumSize = 2
@@ -43,11 +46,12 @@ namespace Couchbase.LoadTests.Core.IO.Connections
             var connectionInitializer = new MockConnectionInitializer();
             var redactor = new MockRedactor();
             var connectionFactory = new MockConnectionFactory();
+            var metricTracker = new MetricTracker(new ClusterOptions());
 
             _channelPool = new ChannelConnectionPool(connectionInitializer, connectionFactory,
                 new DefaultConnectionPoolScaleController(redactor,
                     NullLogger<DefaultConnectionPoolScaleController>.Instance),
-                redactor, NullLogger<ChannelConnectionPool>.Instance, 1024)
+                redactor, NullLogger<ChannelConnectionPool>.Instance, metricTracker, 1024)
             {
                 MinimumSize = 2,
                 MaximumSize = 2

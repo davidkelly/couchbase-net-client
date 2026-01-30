@@ -1,4 +1,6 @@
 using Couchbase.Core.Diagnostics.Tracing;
+using Couchbase;
+using Couchbase.Core.Diagnostics.Metrics;
 using Couchbase.Core.IO.Connections;
 using Couchbase.Core.IO.Connections.Channels;
 using Couchbase.Core.IO.Operations;
@@ -79,10 +81,12 @@ namespace Couchbase.UnitTests.Core.IO.Connections.Channels
                 connectionFactory = connectionFactoryMock.Object;
             }
 
+            var metricTracker = new MetricTracker(new ClusterOptions());
             return new ChannelConnectionPool(connectionInitializer, connectionFactory,
                 new Mock<IConnectionPoolScaleController>().Object,
                 new Mock<IRedactor>().Object,
                 new Logger(_testOutput),
+                metricTracker,
                 channel
             );
         }

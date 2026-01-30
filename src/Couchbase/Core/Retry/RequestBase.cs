@@ -31,6 +31,7 @@ namespace Couchbase.Core.Retry
         public string? Statement { get; set; }
 
         #region Tracing and Metrics
+        internal MetricTracker? MetricTracker { get; set; }
 
         /// <inheritdoc />
         public abstract void StopRecording();

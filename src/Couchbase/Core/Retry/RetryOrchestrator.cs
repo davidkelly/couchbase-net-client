@@ -21,11 +21,13 @@ namespace Couchbase.Core.Retry
     internal partial class RetryOrchestrator(
         TimeProvider timeProvider,
         ILogger<RetryOrchestrator> logger,
-        TypedRedactor redactor)
+        TypedRedactor redactor,
+        MetricTracker metricTracker)
         : IRetryOrchestrator
     {
         private readonly ILogger<RetryOrchestrator> _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         private readonly TypedRedactor _redactor = redactor ?? throw new ArgumentNullException(nameof(redactor));
+        private readonly MetricTracker _metricTracker = metricTracker ?? throw new ArgumentNullException(nameof(metricTracker));
 
         /// <summary>
         /// Seam for unit testing to change delay behaviors.
@@ -34,6 +36,11 @@ namespace Couchbase.Core.Retry
 
         public async Task<T> RetryAsync<T>(Func<Task<T>> send, IRequest request) where T : IServiceResult
         {
+            if (request is RequestBase requestBase)
+            {
+                requestBase.MetricTracker ??= _metricTracker;
+            }
+
             var ctsp = CancellationTokenPairSourcePool.Shared.Rent(timeProvider, request.Timeout, request.Token);
             var token = ctsp.Token;
 
@@ -182,7 +189,7 @@ namespace Couchbase.Core.Retry
                     {
                         if (operation.Attempts > 1)
                         {
-                            MetricTracker.KeyValue.TrackRetry(operation.OpCode);
+                            _metricTracker.KeyValue.TrackRetry(operation.OpCode);
                         }
 
                         var status = await bucket.SendAsync(operation, tokenPair).ConfigureAwait(false);
@@ -278,7 +285,7 @@ namespace Couchbase.Core.Retry
                     ThrowHelper.ThrowFalseTimeoutException(operation, errorContext);
                 }
 
-                MetricTracker.KeyValue.TrackTimeout(operation.OpCode);
+                _metricTracker.KeyValue.TrackTimeout(operation.OpCode);
                 var timeoutException = ThrowHelper.CreateTimeoutException(operation, ex, _redactor, errorContext);
                 outcomeErrorType = timeoutException.GetType();
                 throw timeoutException;

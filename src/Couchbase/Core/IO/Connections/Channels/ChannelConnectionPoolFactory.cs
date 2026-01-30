@@ -1,4 +1,5 @@
 using System;
+using Couchbase.Core.Diagnostics.Metrics;
 using Couchbase.Core.Logging;
 using Microsoft.Extensions.Logging;
 
@@ -16,16 +17,18 @@ namespace Couchbase.Core.IO.Connections.Channels
         private readonly IConnectionPoolScaleControllerFactory _scaleControllerFactory;
         private readonly IRedactor _redactor;
         private readonly ILogger<ChannelConnectionPool> _channelPoolLogger;
+        private readonly MetricTracker _metricTracker;
 
         public ChannelConnectionPoolFactory(IConnectionFactory connectionFactory, ClusterOptions clusterOptions,
             IConnectionPoolScaleControllerFactory scaleControllerFactory, IRedactor redactor,
-            ILogger<ChannelConnectionPool> channelPoolLogger)
+            ILogger<ChannelConnectionPool> channelPoolLogger, MetricTracker metricTracker)
         {
             _connectionFactory = connectionFactory ?? throw new ArgumentNullException(nameof(connectionFactory));
             _clusterOptions = clusterOptions ?? throw new ArgumentNullException(nameof(clusterOptions));
             _scaleControllerFactory = scaleControllerFactory ?? throw new ArgumentNullException(nameof(scaleControllerFactory));
             _redactor = redactor ?? throw new ArgumentNullException(nameof(redactor));
             _channelPoolLogger = channelPoolLogger ?? throw new ArgumentNullException(nameof(channelPoolLogger));
+            _metricTracker = metricTracker ?? throw new ArgumentNullException(nameof(metricTracker));
         }
 
         /// <inheritdoc />
@@ -43,7 +46,7 @@ namespace Couchbase.Core.IO.Connections.Channels
                 var scaleController = _scaleControllerFactory.Create();
 
                 return new ChannelConnectionPool(clusterNode, _connectionFactory, scaleController,
-                    _redactor, _channelPoolLogger, (int) _clusterOptions.KvSendQueueCapacity)
+                    _redactor, _channelPoolLogger, _metricTracker, (int) _clusterOptions.KvSendQueueCapacity)
                 {
                     MinimumSize = _clusterOptions.NumKvConnections,
                     MaximumSize = _clusterOptions.MaxKvConnections

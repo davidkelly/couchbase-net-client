@@ -23,7 +23,7 @@ namespace Couchbase.Core.Retry.Query
             if (Stopwatch != null)
             {
                 Stopwatch.Stop();
-                MetricTracker.N1Ql.TrackOperation(this, Stopwatch.Elapsed, errorType);
+                MetricTracker?.N1Ql.TrackOperation(this, Stopwatch.Elapsed, errorType);
             }
         }
 

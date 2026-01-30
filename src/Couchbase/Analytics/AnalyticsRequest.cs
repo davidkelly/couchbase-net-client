@@ -44,7 +44,7 @@ namespace Couchbase.Analytics
             if (Stopwatch != null)
             {
                 Stopwatch.Stop();
-                MetricTracker.Analytics.TrackOperation(this, Stopwatch.Elapsed, errorType);
+                MetricTracker?.Analytics.TrackOperation(this, Stopwatch.Elapsed, errorType);
             }
         }
     }

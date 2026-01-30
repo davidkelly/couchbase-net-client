@@ -25,6 +25,7 @@ namespace Couchbase.Core.IO.Connections.DataFlow
         private readonly IConnectionPoolScaleController _scaleController;
         private readonly IRedactor _redactor;
         private readonly ILogger<DataFlowConnectionPool> _logger;
+        private readonly MetricTracker _metricTracker;
         private readonly uint _kvSendQueueCapacity;
         private readonly CancellationTokenSource _cts = new CancellationTokenSource();
         private readonly SemaphoreSlim _lock = new SemaphoreSlim(1);
@@ -55,14 +56,17 @@ namespace Couchbase.Core.IO.Connections.DataFlow
         /// <param name="scaleController">Scale controller.</param>
         /// <param name="redactor">Log redactor.</param>
         /// <param name="logger">Logger.</param>
+        /// <param name="metricTracker">Per-cluster metric tracker.</param>
         /// <param name="kvSendQueueCapacity"></param>
         public DataFlowConnectionPool(IConnectionInitializer connectionInitializer, IConnectionFactory connectionFactory,
-            IConnectionPoolScaleController scaleController, IRedactor redactor, ILogger<DataFlowConnectionPool> logger, uint kvSendQueueCapacity)
+            IConnectionPoolScaleController scaleController, IRedactor redactor, ILogger<DataFlowConnectionPool> logger,
+            MetricTracker metricTracker, uint kvSendQueueCapacity)
             : base(connectionInitializer, connectionFactory, logger)
         {
             _scaleController = scaleController ?? throw new ArgumentNullException(nameof(scaleController));
             _redactor = redactor ?? throw new ArgumentNullException(nameof(redactor));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _metricTracker = metricTracker ?? throw new ArgumentNullException(nameof(metricTracker));
             _kvSendQueueCapacity = kvSendQueueCapacity;
 
             MinimumSize = 2;
@@ -117,7 +121,7 @@ namespace Couchbase.Core.IO.Connections.DataFlow
                     if (!_sendQueue.Post(new QueueItem
                         { Operation = operation, CancellationToken = cancellationToken }))
                     {
-                        MetricTracker.KeyValue.TrackSendQueueFull();
+                        _metricTracker.KeyValue.TrackSendQueueFull();
                         throw new SendQueueFullException();
                     }
 
@@ -136,7 +140,7 @@ namespace Couchbase.Core.IO.Connections.DataFlow
                     if (!_sendQueue.Post(new QueueItem
                         { Operation = operation, CancellationToken = cancellationToken }))
                     {
-                        MetricTracker.KeyValue.TrackSendQueueFull();
+                        _metricTracker.KeyValue.TrackSendQueueFull();
                         throw new SendQueueFullException();
                     }
                 }, cancellationToken);
@@ -374,7 +378,7 @@ namespace Couchbase.Core.IO.Connections.DataFlow
                                 // Since the exception on the task is ignored, we're also eating the exception
                                 if (!_sendQueue.Post(request))
                                 {
-                                    MetricTracker.KeyValue.TrackSendQueueFull();
+                                    _metricTracker.KeyValue.TrackSendQueueFull();
                                     throw new SendQueueFullException();
                                 }
                             }

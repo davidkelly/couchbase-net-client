@@ -48,6 +48,7 @@ namespace Couchbase.Core
         private readonly ICircuitBreaker _circuitBreaker;
         private readonly ObjectPool<OperationBuilder> _operationBuilderPool;
         private readonly ISaslMechanismFactory _saslMechanismFactory;
+        private readonly MetricTracker _metricTracker;
         private Uri _queryUri;
         private Uri _analyticsUri;
         private Uri _searchUri;
@@ -79,6 +80,7 @@ namespace Couchbase.Core
             _operationConfigurator = operationConfigurator;
             EndPoint = endPoint;
             _appTelemetryCollector = _context.ServiceProvider.GetRequiredService<IAppTelemetryCollector>();
+            _metricTracker = _context.ServiceProvider.GetRequiredService<MetricTracker>();
 
             try
             {
@@ -122,6 +124,7 @@ namespace Couchbase.Core
             _circuitBreaker = circuitBreaker;
             _operationConfigurator = operationConfigurator;
             _logger = logger;
+            _metricTracker = _context.ServiceProvider.GetRequiredService<MetricTracker>();
         }
 
         /// <summary>
@@ -644,7 +647,7 @@ namespace Couchbase.Core
                     status = await op.Completed.ConfigureAwait(false);
                 }
 
-                Diagnostics.Metrics.MetricTracker.KeyValue.TrackResponseStatus(op.OpCode, status);
+                _metricTracker.KeyValue.TrackResponseStatus(op.OpCode, status);
 
                 if (!status.Failure(op.OpCode))
                 {
@@ -759,7 +762,7 @@ namespace Couchbase.Core
                     }
 
                     LogKvOperationTimeout(_redactor.SystemData(EndPoint), op.OpCode, _redactor.UserData(op.Key), op.Opaque, op.ConfigVersion, op.IsSent);
-                    MetricTracker.KeyValue.TrackTimeout(op.OpCode);
+                    _metricTracker.KeyValue.TrackTimeout(op.OpCode);
 
                     _appTelemetryCollector?.IncrementMetrics(
                         operationLatency,
@@ -859,7 +862,7 @@ namespace Couchbase.Core
                             Transcoder = _context.GlobalTranscoder
                         };
                         clusterMapChangeNotificationOp.HandleOperationCompleted(operationResponse);
-                        MetricTracker.KeyValue.TrackOperation(clusterMapChangeNotificationOp, TimeSpan.Zero, errorType: null);
+                        _metricTracker.KeyValue.TrackOperation(clusterMapChangeNotificationOp, TimeSpan.Zero, errorType: null);
 
                         if (clusterMapChangeNotificationOp.HasExtras)
                         {

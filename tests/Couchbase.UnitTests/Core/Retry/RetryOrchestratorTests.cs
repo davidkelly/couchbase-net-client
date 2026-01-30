@@ -7,6 +7,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Couchbase.Analytics;
+using Couchbase;
 using Couchbase.Core;
 using Couchbase.Core.Bootstrapping;
 using Couchbase.Core.Configuration.Server;
@@ -682,11 +683,13 @@ namespace Couchbase.UnitTests.Core.Retry
             );
             var loggerFactory = new TestOutputLoggerFactory(testOutputHelper);
             var logger = loggerFactory.CreateLogger<RetryOrchestrator>();
+            var metricTracker = new MetricTracker(new ClusterOptions());
 
             var mock = new Mock<RetryOrchestrator>(
                 timeProvider,
                 logger,
-                new TypedRedactor(RedactionLevel.None))
+                new TypedRedactor(RedactionLevel.None),
+                metricTracker)
             {
                 CallBase = true
             };

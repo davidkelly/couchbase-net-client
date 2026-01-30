@@ -24,6 +24,7 @@ namespace Couchbase.Core.IO.Connections.Channels
         private readonly IConnectionPoolScaleController _scaleController;
         private readonly IRedactor _redactor;
         private readonly ILogger<ChannelConnectionPool> _logger;
+        private readonly MetricTracker _metricTracker;
         private readonly CancellationTokenSource _cts = new();
         private readonly SemaphoreSlim _lock = new(1);
         private readonly List<ChannelConnectionProcessor> _connections = new();
@@ -53,11 +54,14 @@ namespace Couchbase.Core.IO.Connections.Channels
         /// <param name="scaleController">Scale controller.</param>
         /// <param name="redactor">Log redactor.</param>
         /// <param name="logger">Logger.</param>
+        /// <param name="metricTracker">Per-cluster metric tracker.</param>
         /// <param name="sendQueueCapacity">The maximum number of items the channel will store.
         /// Defaults to 1024 and is configurable via <see cref="Couchbase.ClusterOptions.KvSendQueueCapacity"/></param>
         public ChannelConnectionPool(IConnectionInitializer connectionInitializer, IConnectionFactory connectionFactory,
-            IConnectionPoolScaleController scaleController, IRedactor redactor, ILogger<ChannelConnectionPool> logger, int sendQueueCapacity) :
-            this(connectionInitializer, connectionFactory, scaleController, redactor, logger, CreateDefaultChannel(sendQueueCapacity))
+            IConnectionPoolScaleController scaleController, IRedactor redactor, ILogger<ChannelConnectionPool> logger,
+            MetricTracker metricTracker, int sendQueueCapacity) :
+            this(connectionInitializer, connectionFactory, scaleController, redactor, logger, metricTracker,
+                CreateDefaultChannel(sendQueueCapacity))
         {
         }
 
@@ -69,14 +73,17 @@ namespace Couchbase.Core.IO.Connections.Channels
         /// <param name="scaleController">Scale controller.</param>
         /// <param name="redactor">Log redactor.</param>
         /// <param name="logger">Logger.</param>
+        /// <param name="metricTracker">Per-cluster metric tracker.</param>
         /// <param name="channel">Channel queue.</param>
         internal ChannelConnectionPool(IConnectionInitializer connectionInitializer, IConnectionFactory connectionFactory,
-            IConnectionPoolScaleController scaleController, IRedactor redactor, ILogger<ChannelConnectionPool> logger, Channel<ChannelQueueItem> channel)
+            IConnectionPoolScaleController scaleController, IRedactor redactor, ILogger<ChannelConnectionPool> logger,
+            MetricTracker metricTracker, Channel<ChannelQueueItem> channel)
             : base(connectionInitializer, connectionFactory, logger)
         {
             _scaleController = scaleController ?? throw new ArgumentNullException(nameof(scaleController));
             _redactor = redactor ?? throw new ArgumentNullException(nameof(redactor));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _metricTracker = metricTracker ?? throw new ArgumentNullException(nameof(metricTracker));
 
             MinimumSize = 2;
             MaximumSize = 5;
@@ -129,7 +136,7 @@ namespace Couchbase.Core.IO.Connections.Channels
             // operation may block longer.
             if (!_sendQueue.Writer.TryWrite(new ChannelQueueItem(operation, cancellationToken)))
             {
-                MetricTracker.KeyValue.TrackSendQueueFull();
+                _metricTracker.KeyValue.TrackSendQueueFull();
                 ThrowHelper.ThrowSendQueueFullException();
             }
 

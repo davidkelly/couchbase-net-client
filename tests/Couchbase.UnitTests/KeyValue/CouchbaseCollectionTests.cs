@@ -3,11 +3,13 @@ using System.Collections.Generic;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
+using Couchbase;
 using Couchbase.Core;
 using Couchbase.Core.Bootstrapping;
 using Couchbase.Core.CircuitBreakers;
 using Couchbase.Core.Configuration.Server;
 using Couchbase.Core.DI;
+using Couchbase.Core.Diagnostics.Metrics;
 using Couchbase.Core.Diagnostics.Metrics;
 using Couchbase.Core.Diagnostics.Metrics.AppTelemetry;
 using Couchbase.Core.Diagnostics.Tracing;
@@ -329,7 +331,8 @@ namespace Couchbase.UnitTests.KeyValue
             var operationConfigurator = new OperationConfigurator(new LegacyTranscoder(),
                 Mock.Of<IOperationCompressor>(),
                 new DefaultObjectPool<OperationBuilder>(new OperationBuilderPoolPolicy()),
-                new BestEffortRetryStrategy());
+                new BestEffortRetryStrategy(),
+                new MetricTracker(new ClusterOptions()));
 
             var serviceProviderMock = new Mock<IServiceProvider>();
 

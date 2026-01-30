@@ -87,6 +87,10 @@ namespace Couchbase.Core
             {
                 _ownedObjects.Add(disposableMeter);
             }
+
+            var metricTracker = ServiceProvider.GetRequiredService<MetricTracker>();
+            metricTracker.SetClusterLabelsProvider(() => GlobalConfig?.ClusterLabels);
+            _ownedObjects.Add(metricTracker);
         }
 
         /// <summary>

@@ -238,6 +238,7 @@ namespace Couchbase.Core.IO.Operations
         /// Service which providers <see cref="OperationBuilder"/> instances as needed.
         /// </summary>
         public ObjectPool<OperationBuilder> OperationBuilderPool { get; set; } = null!;  // Assumes we always initialize with OperationConfigurator
+        internal MetricTracker? MetricTracker { get; set; }
 
 #if NET8_0_OR_GREATER
         // When using a LightweightStopwatch, it can't be stopped, so we store the elapsed time here.
@@ -427,7 +428,7 @@ namespace Couchbase.Core.IO.Operations
             if (IsSent && !_isOrphaned)
             {
                 _isOrphaned = true;//only create attribute once
-                MetricTracker.KeyValue.TrackOrphaned();
+                MetricTracker?.KeyValue.TrackOrphaned();
 
                 if (Span.CanWrite)
                 {
@@ -807,7 +808,7 @@ namespace Couchbase.Core.IO.Operations
             var elapsed = _stopwatch.Elapsed;
 #endif
 
-            MetricTracker.KeyValue.TrackOperation(this, elapsed, errorType);
+            MetricTracker?.KeyValue.TrackOperation(this, elapsed, errorType);
         }
         #endregion
 

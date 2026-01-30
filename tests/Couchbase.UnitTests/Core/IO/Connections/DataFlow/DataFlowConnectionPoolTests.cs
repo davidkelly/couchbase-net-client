@@ -6,6 +6,8 @@ using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using Couchbase.Core.Exceptions.KeyValue;
+using Couchbase;
+using Couchbase.Core.Diagnostics.Metrics;
 using Couchbase.Core.IO.Connections;
 using Couchbase.Core.IO.Connections.DataFlow;
 using Couchbase.Core.IO.Operations;
@@ -816,9 +818,10 @@ namespace Couchbase.UnitTests.Core.IO.Connections.DataFlow
 
             public StoppableDataFlowConnectionPool(IConnectionInitializer connectionInitializer, IConnectionFactory connectionFactory,
                 IConnectionPoolScaleController scaleController, IRedactor redactor, ILogger<DataFlowConnectionPool> logger,
-                uint kvSendQueueCapacity)
+                MetricTracker metricTracker, uint kvSendQueueCapacity)
             {
-                _innerPool = new(connectionInitializer, connectionFactory, scaleController, redactor, logger, kvSendQueueCapacity);
+                _innerPool = new(connectionInitializer, connectionFactory, scaleController, redactor, logger, metricTracker,
+                    kvSendQueueCapacity);
             }
 
             public HostEndpointWithPort EndPoint => _innerPool.EndPoint;
@@ -904,10 +907,12 @@ namespace Couchbase.UnitTests.Core.IO.Connections.DataFlow
                 connectionFactory = connectionFactoryMock.Object;
             }
 
+            var metricTracker = new MetricTracker(new ClusterOptions());
             return new StoppableDataFlowConnectionPool(connectionInitializer, connectionFactory,
                 new Mock<IConnectionPoolScaleController>().Object,
                 new Mock<IRedactor>().Object,
                 new Logger(_testOutput),
+                metricTracker,
                 new ClusterOptions().KvSendQueueCapacity);
         }
 

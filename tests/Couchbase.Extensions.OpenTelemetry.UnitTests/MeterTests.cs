@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Couchbase;
 using Couchbase.Core.Diagnostics.Metrics;
 using Couchbase.Core.Diagnostics.Tracing;
 using Couchbase.Core.IO.Operations;
@@ -43,7 +44,8 @@ namespace Couchbase.Extensions.OpenTelemetry.UnitTests
 
             // Act
 
-            MetricTracker.KeyValue.TrackOperation(operation, TimeSpan.FromSeconds(1), null);
+            var metricTracker = new MetricTracker(new ClusterOptions());
+            metricTracker.KeyValue.TrackOperation(operation, TimeSpan.FromSeconds(1), null);
 
             // Give the exporter time
             await Task.Delay(100);
@@ -97,7 +99,8 @@ namespace Couchbase.Extensions.OpenTelemetry.UnitTests
 
             // Act
 
-            MetricTracker.KeyValue.TrackOperation(operation, TimeSpan.FromSeconds(1), null);
+            var metricTracker = new MetricTracker(new ClusterOptions());
+            metricTracker.KeyValue.TrackOperation(operation, TimeSpan.FromSeconds(1), null);
 
             // Give the exporter time
             await Task.Delay(100);
